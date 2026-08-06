@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>价差监控汇总 · 提醒面板</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --border: #e5e9f0;
+    --text: #1a2233;
+    --muted: #7a8499;
+    --accent: #2f6bff;
+    --up: #e03131;      /* 溢价/偏高 - 红（A股习惯：涨红） */
+    --down: #0ca678;    /* 折价/偏低 - 绿（A股习惯：跌绿） */
+    --warn-bg: #fff5f5;
+    --warn-border: #ffa8a8;
+    --ok-bg: #f6fffb;
+    --ok-border: #96e6c3;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+  .container { max-width: 1060px; margin: 0 auto; }
+
+  /* 头部 */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+    margin-bottom: 22px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+  .brand .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .logo {
+    width: 40px; height: 40px; border-radius: 11px;
+    background: linear-gradient(135deg, #2f6bff, #5a8bff);
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 15px;
+  }
+  .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .controls .field {
+    display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted);
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 7px 12px;
+  }
+  .controls select, .controls input[type="number"] {
+    border: none; outline: none; font-size: 13px; color: var(--text);
+    background: transparent; font-family: inherit;
+  }
+  .controls select { cursor: pointer; }
+  .controls input[type="number"] { width: 46px; font-weight: 600; }
+  .controls button {
+    border: none; border-radius: 10px; padding: 8px 16px; font-size: 13px;
+    cursor: pointer; font-family: inherit; font-weight: 600;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-ghost { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* 状态条 */
+  .status-bar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 16px; margin-bottom: 18px; font-size: 12.5px; color: var(--muted);
+  }
+  .status-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: #ced4da; display: inline-block; }
+  .status-bar .dot.on { background: #37b24d; box-shadow: 0 0 0 3px rgba(55,178,77,.15); }
+  .status-bar .dot.off { background: #fa5252; }
+  .status-bar b { color: var(--text); font-weight: 600; }
+  .status-bar .spacer { flex: 1; }
+  .status-bar .last { font-variant-numeric: tabular-nums; }
+
+  /* 卡片网格 */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 18px 18px 14px; position: relative; transition: border-color .3s, box-shadow .3s;
+  }
+  .card.warn { border-color: var(--warn-border); box-shadow: 0 0 0 3px rgba(255,168,168,.25); }
+  .card .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .card .card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .card .card-title .tag {
+    font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 20px;
+    background: #eef2ff; color: var(--accent); letter-spacing: 0.5px;
+  }
+  .card .card-title .tag.warn-tag { background: #fff0f0; color: var(--up); }
+  .card .pair { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+  .spread-main { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 4px; }
+  .spread-main .val { font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+  .spread-main .unit { font-size: 16px; font-weight: 600; color: var(--muted); }
+  .spread-main .flag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .flag.ok { background: var(--ok-bg); color: #2b8a3e; border: 1px solid var(--ok-border); }
+  .flag.warn-flag { background: var(--warn-bg); color: var(--up); border: 1px solid var(--warn-border); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+
+  .sub-data { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin: 6px 0 12px; }
+  .sub-data b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .venues { display: flex; gap: 8px; margin: 8px 0 12px; flex-wrap: wrap; }
+  .venue {
+    flex: 1; min-width: 92px; border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 10px; text-align: center; transition: border-color .3s, background .3s;
+  }
+  .venue.warn { border-color: var(--warn-border); background: var(--warn-bg); }
+  .venue .v-name { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .venue .v-val { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* 提醒设置 */
+  .alert-set {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 4px;
+  }
+  .alert-set label { font-size: 12.5px; color: var(--muted); }
+  .alert-set .threshold {
+    display: flex; align-items: center; gap: 5px;
+    border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; background: #fafbfd;
+  }
+  .alert-set .threshold input {
+    width: 52px; border: none; outline: none; font-size: 13.5px; font-weight: 700;
+    background: transparent; text-align: center; font-family: inherit;
+  }
+  .alert-set .threshold span { font-size: 12px; color: var(--muted); }
+  .alert-set .toggle {
+    margin-left: auto; display: flex; align-items: center; gap: 6px; cursor: pointer;
+    font-size: 12.5px; color: var(--muted); user-select: none;
+  }
+  .alert-set .toggle input { display: none; }
+  .switch {
+    width: 36px; height: 20px; border-radius: 20px; background: #e0e4ea;
+    position: relative; transition: background .25s; flex-shrink: 0;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff; transition: left .25s; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  }
+  .toggle input:checked + .switch { background: var(--accent); }
+  .toggle input:checked + .switch::after { left: 18px; }
+
+  /* 通知横幅 */
+  .toast-wrap { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 99; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+  .toast {
+    background: #1f2937; color: #fff; padding: 10px 18px; border-radius: 10px;
+    font-size: 13.5px; box-shadow: 0 8px 24px rgba(0,0,0,.18); opacity: 0; transform: translateY(12px);
+    transition: opacity .3s, transform .3s; max-width: 90vw; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  footer { text-align: center; color: var(--muted); font-size: 11.5px; margin-top: 26px; line-height: 1.8; }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 700px) {
+    .spread-main .val { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="brand">
+      <div class="logo">价差</div>
+      <div>
+        <h1>价差监控汇总</h1>
+        <div class="sub">GIGADEV · KSTR×科创50 · CXMT — 跨境价差提醒</div>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="field">
+        <span>刷新</span>
+        <select id="refreshRate">
+          <option value="5" selected>5秒</option>
+          <option value="10">10秒</option>
+          <option value="15">15秒</option>
+          <option value="30">30秒</option>
+          <option value="60">60秒</option>
+        </select>
+      </div>
+      <button class="btn-ghost" id="btnSound" title="测试提醒声音">🔔 试听</button>
+      <button class="btn-primary" id="btnRefresh">立即刷新</button>
+    </div>
+  </header>
+
+  <div class="status-bar">
+    <span><i class="dot" id="liveDot"></i> <b id="liveText">连接中…</b></span>
+    <span>数据源：Hyperliquid · Binance · Gate · Aster · 腾讯行情</span>
+    <span class="spacer"></span>
+    <span class="last">更新于 <b id="lastUpdate">--:--:--</b></span>
+  </div>
+
+  <div class="grid">
+
+    <!-- GIGADEV -->
+    <div class="card" id="card-gigadev">
+      <div class="card-head">
+        <div>
+          <div class="card-title">GIGADEV 基差 <span class="tag">HL × A股</span></div>
+          <div class="pair">xyz:GIGADEV vs 兆易创新 603986.SH</div>
+        </div>
+      </div>
+      <div class="spread-main">
+        <span class="val" id="giga-val">--</span>
+        <span class="unit">%</span>
+        <span class="flag" id="giga-flag">加载中</span>
+      </div>
+      <div class="sub-data">
+        <span>HL 买一 <b id="giga-hl">--</b></span>
+        <span>A股公允 <b id="giga-fair">--</b></span>
+        <span>603986 卖一 <b id="giga-stock">--</b></span>
+        <span>USD/CNY <b id="giga-fx">--</b></span>
+      </div>
+      <div class="alert-set">
+        <label>提醒阈值</label>
+        <div class="threshold">
+          <input type="number" id="giga-th" step="0.1" min="0.1" max="20" value="1.5">
+          <span>%</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="giga-on" checked>
+          <span class="switch"></span> 开启
+        </label>
+      </div>
+    </div>
+
+    <!-- KSTR -->
+    <div class="card" id="card-kstr">
+      <div class="card-head">
+        <div>
+          <div class="card-title">KSTR × 科创50 <span class="tag">Binance × 588000</span></div>
+          <div class="pair">KSTRUSDT vs 科创50ETF · 20日滚动中位数基线</div>
+        </div>
+      </div>
+      <div class="spread-main">
+        <span class="val" id="kstr-val">--</span>
+        <span class="unit">%</span>
+        <span class="flag" id="kstr-flag">加载中</span>
+      </div>
+      <div class="sub-data">
+        <span>KSTR 买一 <b id="kstr-bid">--</b></span>
+        <span>588000 卖一 <b id="kstr-ask">--</b></span>
+        <span>20日中位 <b id="kstr-med">--</b></span>
+        <span>USD/CNY <b id="kstr-fx">--</b></span>
+      </div>
+      <div class="alert-set">
+        <label>提醒阈值</label>
+        <div class="threshold">
+          <input type="number" id="kstr-th" step="0.1" min="0.1" max="20" value="2.0">
+          <span>%</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="kstr-on" checked>
+          <span class="switch"></span> 开启
+        </label>
+      </div>
+    </div>
+
+    <!-- CXMT -->
+    <div class="card" id="card-cxmt">
+      <div class="card-head">
+        <div>
+          <div class="card-title">CXMT 跨市场 <span class="tag">3平台 × A股</span></div>
+          <div class="pair">xyz:CXMT · Gate · Aster vs 长鑫科技 688825.SH</div>
+        </div>
+      </div>
+      <div class="spread-main">
+        <span class="val" id="cxmt-val">--</span>
+        <span class="unit">%</span>
+        <span class="flag" id="cxmt-flag">加载中</span>
+      </div>
+      <div class="venues">
+        <div class="venue" id="venue-hl">
+          <div class="v-name">Hyperliquid</div>
+          <div class="v-val" id="cxmt-hl">--</div>
+        </div>
+        <div class="venue" id="venue-gate">
+          <div class="v-name">Gate</div>
+          <div class="v-val" id="cxmt-gate">--</div>
+        </div>
+        <div class="venue" id="venue-aster">
+          <div class="v-name">Aster</div>
+          <div class="v-val" id="cxmt-aster">--</div>
+        </div>
+      </div>
+      <div class="sub-data">
+        <span>A股公允 <b id="cxmt-fair">--</b></span>
+        <span>688825 卖一 <b id="cxmt-stock">--</b></span>
+        <span>USD/CNY <b id="cxmt-fx">--</b></span>
+      </div>
+      <div class="alert-set">
+        <label>提醒阈值</label>
+        <div class="threshold">
+          <input type="number" id="cxmt-th" step="0.1" min="0.1" max="20" value="2.0">
+          <span>%</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cxmt-on" checked>
+          <span class="switch"></span> 开启
+        </label>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    价差口径：<b>A股公允价 = A股卖一价 ÷ USD/CNY；价差 = 合约买一价 ÷ 公允价 − 1</b>（KSTR 另按最近20个交易日滚动中位数归一化；合约买一 = 盘口可卖出的最高报价，A股卖一 = 买入需支付的价格）。<br>
+    数据来源：<a href="https://api.hyperliquid.xyz/info" target="_blank">Hyperliquid API</a> ·
+    <a href="https://fapi.binance.com" target="_blank">Binance Futures</a> ·
+    <a href="https://api.gateio.ws" target="_blank">Gate.io</a> ·
+    <a href="https://asterdex.github.io/aster-api-website/zh/futures-v3/market-data" target="_blank">Aster</a> ·
+    腾讯行情 · 仅供监控参考，不构成交易建议
+  </footer>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+"use strict";
+/* ================= 配置 ================= */
+const CFG = {
+  gigadev: { hlCoin: "xyz:GIGADEV", stockCode: "sh603986", name: "兆易创新" },
+  cxmt:    { hlCoin: "xyz:CXMT",    stockCode: "sh688825", name: "长鑫科技" },
+  kstr:    { symbol: "KSTRUSDT",    etfCode: "sh588000" },
+};
+
+/* ================= 工具 ================= */
+const $ = id => document.getElementById(id);
+const fmt = (v, d = 2) => (v === null || v === undefined || isNaN(v)) ? "--" : Number(v).toFixed(d);
+const fmtPct = v => (v === null || v === undefined || isNaN(v)) ? "--" : (v >= 0 ? "+" : "") + (v * 100).toFixed(2) + "%";
+const absPct = v => Math.abs(v * 100);
+
+const state = {
+  live: false,
+  lastUpdate: null,
+  gigadev: { spread: null, hl: null, fair: null, stock: null, fx: null },
+  kstr:    { spread: null, bid: null, ask: null, median: null, fx: null, rToday: null },
+  cxmt:    { spreads: { hl: null, gate: null, aster: null }, asterBid: null, fair: null, stock: null, fx: null },
+  fired:   { gigadev: false, kstr: false, cxmt: false, hl: false, gate: false, aster: false },
+};
+
+/* ================= 声音 ================= */
+let audioCtx = null;
+function beep(freq = 880, dur = 0.18, when = 0) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.type = "sine"; o.frequency.value = freq;
+    const t = audioCtx.currentTime + when;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.05);
+  } catch (e) { /* ignore */ }
+}
+function alarm() { beep(880, 0.18, 0); beep(1175, 0.22, 0.22); }
+
+/* ================= 通知 ================= */
+function toast(msg) {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  $("toastWrap").appendChild(t);
+  requestAnimationFrame(() => t.classList.add("show"));
+  setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 350); }, 4200);
+}
+let notifOk = false;
+function requestNotif() {
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission().then(p => notifOk = p === "granted");
+  }
+}
+function notif(title, body) {
+  if (notifOk) { try { new Notification(title, { body }); } catch (e) {} }
+}
+
+/* ================= 数据源 ================= */
+
+/* Hyperliquid l2Book: coin -> {bid, ask} */
+async function hlL2Book(coin) {
+  const r = await fetch("https://api.hyperliquid.xyz/info", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "l2Book", coin })
+  });
+  if (!r.ok) throw new Error("HL " + r.status);
+  const d = await r.json();
+  const bid = d.levels && d.levels[0] && d.levels[0][0] ? parseFloat(d.levels[0][0].px) : null;
+  const ask = d.levels && d.levels[1] && d.levels[1][0] ? parseFloat(d.levels[1][0].px) : null;
+  if (!bid || !ask) throw new Error("HL no book");
+  return { bid, ask, mid: (bid + ask) / 2 };
+}
+
+/* 腾讯行情: codes -> {code: {price, ...}}  (GBK 解码) */
+async function tencentQuotes(codes) {
+  const url = "https://qt.gtimg.cn/q=" + codes.join(",");
+  const r = await fetch(url, { cache: "no-store" });
+  const buf = await r.arrayBuffer();
+  let text;
+  try { text = new TextDecoder("gbk").decode(buf); }
+  catch (e) { text = new TextDecoder("utf-8").decode(buf); }
+  const out = {};
+  const re = /v_([a-zA-Z0-9_]+)="([^"]*)"/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const parts = m[2].split("~");
+    // 腾讯字段: 0未知 1名称 2代码 3最新价 4昨收 5今开 6成交量 30时间 31涨跌 32涨跌% 33最高 34最低
+    out[m[1]] = {
+      name: parts[1] || "",
+      price: parseFloat(parts[3]),
+      prevClose: parseFloat(parts[4]),
+      high: parseFloat(parts[33]),
+      low: parseFloat(parts[34]),
+      bid1: parseFloat(parts[9]),
+      ask1: parseFloat(parts[19]),  // 卖一价
+      time: parts[30] || "",
+    };
+  }
+  return out;
+}
+
+/* Binance bookTicker */
+async function binanceBook(symbol) {
+  const r = await fetch(`https://fapi.binance.com/fapi/v1/ticker/bookTicker?symbol=${symbol}`, { cache: "no-store" });
+  const d = await r.json();
+  return { bid: parseFloat(d.bidPrice), ask: parseFloat(d.askPrice) };
+}
+
+/* KSTR 20日基线: 最近20个已收盘交易日的移动窗口中位数 (rolling window) */
+let kstrMedianCache = null, kstrMedianAt = 0;
+const fmtDate = ts => {
+  const d = new Date(ts);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+};
+async function kstrMedian() {
+  const now = Date.now();
+  if (kstrMedianCache && now - kstrMedianAt < 5 * 60 * 1000) return kstrMedianCache;
+  // KSTR 日线 (Binance, 拉45根确保覆盖20个交易日)
+  const r1 = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${CFG.kstr.symbol}&interval=1d&limit=45`, { cache: "no-store" });
+  const klines = await r1.json();
+  // ETF 日线 (腾讯 qfq)
+  const r2 = await fetch(`https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${CFG.kstr.etfCode},day,,,45,qfq`, { cache: "no-store" });
+  const d2 = await r2.json();
+  const etfArr = (d2.data && d2.data[CFG.kstr.etfCode] && d2.data[CFG.kstr.etfCode].qfqday) || [];
+  // 按日期对齐
+  const etfByDate = {};
+  etfArr.forEach(row => etfByDate[row[0]] = parseFloat(row[2])); // [date, open, close, high, low, vol]
+  const today = fmtDate(Date.now());
+  const pairs = [];
+  klines.forEach(k => {
+    const date = fmtDate(k[0]);
+    const kClose = parseFloat(k[4]);
+    const eClose = etfByDate[date];
+    if (kClose > 0 && eClose > 0) pairs.push({ date, ratio: kClose / eClose });
+  });
+  // 移动窗口: 排除未收盘的今天, 取最近20个已收盘交易日
+  pairs.sort((a, b) => a.date < b.date ? -1 : 1);
+  const closed = pairs.filter(p => p.date < today);
+  const win = closed.slice(-20);
+  if (win.length < 10) throw new Error("基线数据不足");
+  // 中位数口径（与原监控面板一致），保持移动窗口滚动
+  const sorted = win.map(p => p.ratio).sort((a, b) => a - b);
+  const n = sorted.length;
+  const med = n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+  kstrMedianCache = med; kstrMedianAt = now;
+  return med;
+}
+
+/* Gate WebSocket bookTicker */
+function gateWS(onData) {
+  const ws = new WebSocket("wss://fx-ws.gateio.ws/v4/ws/usdt");
+  ws.onopen = () => {
+    ws.send(JSON.stringify({
+      time: Math.floor(Date.now() / 1000),
+      channel: "futures.book_ticker",
+      event: "subscribe",
+      payload: ["CXMT_USDT"]
+    }));
+  };
+  ws.onmessage = e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.channel === "futures.book_ticker" && d.result) {
+        const t = Array.isArray(d.result) ? d.result[0] : d.result;
+        if (t && (t.s === "CXMT_USDT" || t.contract === "CXMT_USDT")) {
+          onData({ bid: parseFloat(t.b), ask: parseFloat(t.a) });
+        }
+      }
+    } catch (err) {}
+  };
+  ws.onclose = () => setTimeout(() => gateWS(onData), 5000);
+  ws.onerror = () => { try { ws.close(); } catch (e) {} };
+  return ws;
+}
+
+/* Aster WebSocket: 双流 —— bookTicker(bid/ask, 盘口变动时推) + markPrice(每3秒, 兜底) */
+function asterWS(onData) {
+  const ws = new WebSocket("wss://fstream.asterdex.com/ws/cxmtusdt@bookTicker");
+  const ws2 = new WebSocket("wss://fstream.asterdex.com/ws/cxmtusdt@markPrice");
+  const send = (t) => { onData(t); };
+  ws.onmessage = e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.e === "bookTicker" && d.s === "CXMTUSDT") {
+        send({ bid: parseFloat(d.b), ask: parseFloat(d.a), src: "book" });
+      }
+    } catch (err) {}
+  };
+  ws2.onmessage = e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.e === "markPriceUpdate" && d.s === "CXMTUSDT") {
+        send({ mark: parseFloat(d.p), src: "mark" });
+      }
+    } catch (err) {}
+  };
+  const reopen = () => { try { ws.close(); } catch(e){}; try { ws2.close(); } catch(e){}; setTimeout(() => asterWS(onData), 8000); };
+  ws.onclose = reopen; ws.onerror = () => { try { ws.close(); } catch (e) {} };
+  ws2.onclose = reopen; ws2.onerror = () => { try { ws2.close(); } catch (e) {} };
+  return { ws, ws2 };
+}
+
+/* ================= 渲染 ================= */
+function colorOf(spreadPct) { return spreadPct >= 0 ? "var(--up)" : "var(--down)"; }
+
+function renderGigadev() {
+  const s = state.gigadev;
+  const el = $("giga-val"), flag = $("giga-flag");
+  $("giga-hl").textContent = s.hl !== null ? "$" + fmt(s.hl, 4) : "--";
+  $("giga-fair").textContent = s.fair !== null ? "$" + fmt(s.fair, 4) : "--";
+  $("giga-stock").textContent = s.stock !== null ? "¥" + fmt(s.stock, 2) : "--";
+  $("giga-fx").textContent = s.fx !== null ? fmt(s.fx, 4) : "--";
+  if (s.spread === null) { el.textContent = "--"; flag.textContent = "加载中"; flag.className = "flag"; return; }
+  const p = s.spread * 100;
+  el.textContent = (p >= 0 ? "+" : "") + p.toFixed(2);
+  el.style.color = colorOf(p);
+  const th = parseFloat($("giga-th").value) || 1.5;
+  const on = $("giga-on").checked;
+  const triggered = on && absPct(s.spread) >= th;
+  $("card-gigadev").classList.toggle("warn", triggered);
+  const tag = $("card-gigadev").querySelector(".tag");
+  tag.classList.toggle("warn-tag", triggered);
+  tag.textContent = triggered ? "超阈值" : "HL × A股";
+  if (triggered) {
+    flag.textContent = "⚠ 超阈值";
+    flag.className = "flag warn-flag";
+  } else {
+    flag.textContent = "正常";
+    flag.className = "flag ok";
+  }
+  if (triggered && !state.fired.gigadev) {
+    state.fired.gigadev = true;
+    toast(`GIGADEV 价差 ${(p >= 0 ? "+" : "") + p.toFixed(2)}% 超过阈值 ±${th}%`);
+    notif("GIGADEV 价差提醒", `当前 ${(p >= 0 ? "+" : "") + p.toFixed(2)}% (阈值 ±${th}%)`);
+    alarm();
+  } else if (!triggered) state.fired.gigadev = false;
+}
+
+function renderKstr() {
+  const s = state.kstr;
+  const el = $("kstr-val"), flag = $("kstr-flag");
+  $("kstr-bid").textContent = s.bid !== null ? fmt(s.bid, 2) : "--";
+  $("kstr-ask").textContent = s.ask !== null ? fmt(s.ask, 3) : "--";
+  $("kstr-med").textContent = s.median !== null ? fmt(s.median, 3) : "--";
+  $("kstr-fx").textContent = s.fx !== null ? fmt(s.fx, 4) : "--";
+  if (s.spread === null) { el.textContent = "--"; flag.textContent = "加载中"; flag.className = "flag"; return; }
+  const p = s.spread * 100;
+  el.textContent = (p >= 0 ? "+" : "") + p.toFixed(2);
+  el.style.color = colorOf(p);
+  const th = parseFloat($("kstr-th").value) || 2.0;
+  const on = $("kstr-on").checked;
+  const triggered = on && absPct(s.spread) >= th;
+  $("card-kstr").classList.toggle("warn", triggered);
+  const tag = $("card-kstr").querySelector(".tag");
+  tag.classList.toggle("warn-tag", triggered);
+  tag.textContent = triggered ? "超阈值" : "Binance × 588000";
+  if (triggered) { flag.textContent = "⚠ 超阈值"; flag.className = "flag warn-flag"; }
+  else { flag.textContent = "正常"; flag.className = "flag ok"; }
+  if (triggered && !state.fired.kstr) {
+    state.fired.kstr = true;
+    toast(`KSTR 价差 ${(p >= 0 ? "+" : "") + p.toFixed(2)}% 超过阈值 ±${th}%`);
+    notif("KSTR 价差提醒", `当前 ${(p >= 0 ? "+" : "") + p.toFixed(2)}% (阈值 ±${th}%)`);
+    alarm();
+  } else if (!triggered) state.fired.kstr = false;
+}
+
+function renderCxmt() {
+  const s = state.cxmt;
+  const el = $("cxmt-val"), flag = $("cxmt-flag");
+  const v = s.spreads;
+  $("cxmt-fair").textContent = s.fair !== null ? "$" + fmt(s.fair, 4) : "--";
+  $("cxmt-stock").textContent = s.stock !== null ? "¥" + fmt(s.stock, 2) : "--";
+  $("cxmt-fx").textContent = s.fx !== null ? fmt(s.fx, 4) : "--";
+  ["hl", "gate", "aster"].forEach(k => {
+    const elv = $("cxmt-" + k);
+    const vv = v[k];
+    if (vv === null) { elv.textContent = "--"; elv.style.color = ""; }
+    else {
+      const p = vv * 100;
+      elv.textContent = (p >= 0 ? "+" : "") + p.toFixed(2) + "%";
+      elv.style.color = colorOf(p);
+    }
+  });
+  const vals = ["hl", "gate", "aster"].map(k => v[k]).filter(x => x !== null);
+  const th = parseFloat($("cxmt-th").value) || 2.0;
+  const on = $("cxmt-on").checked;
+  // 主显示取三平台中最接近公允价的(绝对值最小)
+  if (vals.length === 0) { el.textContent = "--"; flag.textContent = "加载中"; flag.className = "flag"; }
+  else {
+    const minAbs = vals.reduce((a, b) => Math.abs(a) <= Math.abs(b) ? a : b);
+    const p = minAbs * 100;
+    el.textContent = (p >= 0 ? "+" : "") + p.toFixed(2);
+    el.style.color = colorOf(p);
+    // 各 venue 超阈值高亮
+    ["hl", "gate", "aster"].forEach(k => {
+      const vv = v[k];
+      const tr = on && vv !== null && absPct(vv) >= th;
+      $("venue-" + k).classList.toggle("warn", tr);
+      if (tr && !state.fired[k]) {
+        state.fired[k] = true;
+        const label = { hl: "Hyperliquid", gate: "Gate", aster: "Aster" }[k];
+        toast(`CXMT ${label} 价差 ${(vv * 100 >= 0 ? "+" : "") + (vv * 100).toFixed(2)}% 超过阈值 ±${th}%`);
+        notif("CXMT 价差提醒", `${label}: ${(vv * 100 >= 0 ? "+" : "") + (vv * 100).toFixed(2)}% (阈值 ±${th}%)`);
+        alarm();
+      } else if (!tr) state.fired[k] = false;
+    });
+    const anyTr = on && vals.some(x => absPct(x) >= th);
+    $("card-cxmt").classList.toggle("warn", anyTr);
+    const tag = $("card-cxmt").querySelector(".tag");
+    tag.classList.toggle("warn-tag", anyTr);
+    tag.textContent = anyTr ? "超阈值" : "3平台 × A股";
+    if (anyTr) { flag.textContent = "⚠ 超阈值"; flag.className = "flag warn-flag"; }
+    else { flag.textContent = "正常"; flag.className = "flag ok"; }
+  }
+}
+
+/* ================= 主刷新 ================= */
+async function refreshAll() {
+  try {
+    const [tx] = await Promise.all([
+      tencentQuotes([CFG.gigadev.stockCode, CFG.kstr.etfCode, CFG.cxmt.stockCode, "whUSDCNY"]),
+    ]);
+    const fx = tx.whUSDCNY ? tx.whUSDCNY.price : null;
+
+    // ---- GIGADEV ----
+    try {
+      const book = await hlL2Book(CFG.gigadev.hlCoin);
+      // 股票用卖一价(ask1), 合约用买一价(bid)
+      const stock = tx[CFG.gigadev.stockCode] ? (tx[CFG.gigadev.stockCode].ask1 || tx[CFG.gigadev.stockCode].price) : null;
+      if (book.bid && stock && fx) {
+        const fair = stock / fx;
+        state.gigadev = { spread: book.bid / fair - 1, hl: book.bid, fair, stock, fx };
+      } else { state.gigadev.spread = null; }
+    } catch (e) { state.gigadev.spread = null; }
+
+    // ---- KSTR ----
+    try {
+      const [bb, med] = await Promise.all([binanceBook(CFG.kstr.symbol), kstrMedian()]);
+      const etfAsk = tx[CFG.kstr.etfCode] ? (tx[CFG.kstr.etfCode].ask1 || tx[CFG.kstr.etfCode].price) : null; // 用卖一价近似 ask
+      if (bb.bid && etfAsk && fx && med) {
+        const rToday = (bb.bid * fx) / etfAsk;
+        state.kstr = { spread: rToday / (med * fx) - 1, bid: bb.bid, ask: etfAsk, median: med * fx, fx, rToday };
+      } else { state.kstr.spread = null; }
+    } catch (e) { state.kstr.spread = null; }
+
+    // ---- CXMT (HL 部分) ----
+    try {
+      const book = await hlL2Book(CFG.cxmt.hlCoin);
+      // 股票用卖一价(ask1), 合约用买一价(bid)
+      const stock = tx[CFG.cxmt.stockCode] ? (tx[CFG.cxmt.stockCode].ask1 || tx[CFG.cxmt.stockCode].price) : null;
+      if (book.bid && stock && fx) {
+        const fair = stock / fx;
+        state.cxmt.fair = fair; state.cxmt.stock = stock; state.cxmt.fx = fx;
+        state.cxmt.spreads.hl = book.bid / fair - 1;
+      } else {
+        state.cxmt.spreads.hl = null;
+        state.cxmt.fair = stock && fx ? stock / fx : state.cxmt.fair;
+        state.cxmt.stock = stock !== null && stock !== undefined ? stock : state.cxmt.stock;
+        state.cxmt.fx = fx;
+      }
+    } catch (e) {
+      state.cxmt.spreads.hl = null;
+      if (fx) state.cxmt.fx = fx;
+      const stock = tx[CFG.cxmt.stockCode] ? (tx[CFG.cxmt.stockCode].ask1 || tx[CFG.cxmt.stockCode].price) : null;
+      if (stock && fx) { state.cxmt.fair = stock / fx; state.cxmt.stock = stock; }
+    }
+
+    state.live = true;
+    state.lastUpdate = new Date();
+    $("liveDot").className = "dot on";
+    $("liveText").textContent = "实时连接";
+    $("lastUpdate").textContent = state.lastUpdate.toTimeString().slice(0, 8);
+  } catch (e) {
+    state.live = false;
+    $("liveDot").className = "dot off";
+    $("liveText").textContent = "连接异常";
+    toast("行情获取失败：" + e.message);
+  }
+  renderGigadev(); renderKstr(); renderCxmt();
+}
+
+/* Gate/Aster 推送更新 CXMT */
+gateWS(d => {
+  if (state.cxmt.fair) {
+    state.cxmt.spreads.gate = d.bid / state.cxmt.fair - 1;
+    renderCxmt();
+  }
+});
+asterWS(d => {
+  if (state.cxmt.fair) {
+    // 优先 bookTicker 的 bid，否则用 mark 价
+    if (d.src === "book" && d.bid) {
+      state.cxmt.asterBid = d.bid;
+      state.cxmt.spreads.aster = d.bid / state.cxmt.fair - 1;
+    } else if (d.src === "mark" && d.mark) {
+      const bid = state.cxmt.asterBid || d.mark;  // 有盘口买一用买一，否则用 mark
+      state.cxmt.spreads.aster = bid / state.cxmt.fair - 1;
+    }
+    renderCxmt();
+  }
+});
+
+/* ================= 启动 ================= */
+let timer = null;
+function schedule() {
+  if (timer) clearInterval(timer);
+  const sec = parseInt($("refreshRate").value, 10) || 15;
+  timer = setInterval(refreshAll, sec * 1000);
+}
+$("refreshRate").addEventListener("change", schedule);
+$("btnRefresh").addEventListener("click", refreshAll);
+$("btnSound").addEventListener("click", () => { audioCtx && audioCtx.resume && audioCtx.resume(); alarm(); toast("🔔 提醒声音测试"); });
+
+["giga", "kstr", "cxmt"].forEach(k => {
+  $(k + "-th").addEventListener("change", () => { renderGigadev(); renderKstr(); renderCxmt(); });
+  $(k + "-on").addEventListener("change", () => { renderGigadev(); renderKstr(); renderCxmt(); });
+});
+
+requestNotif();
+schedule();
+refreshAll();
+</script>
+</body>
+</html>
