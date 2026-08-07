@@ -94,6 +94,12 @@
   }
   .card .card-title .tag.warn-tag { background: #fff0f0; color: var(--up); }
   .card .pair { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .card .card-link {
+    flex: none; font-size: 12px; font-weight: 600; color: var(--accent);
+    text-decoration: none; border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 12px; white-space: nowrap; transition: border-color .2s, background .2s;
+  }
+  .card .card-link:hover { border-color: var(--accent); background: rgba(47,107,255,.07); }
 
   .spread-main { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 4px; }
   .spread-main .val { font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
@@ -206,6 +212,7 @@
           <div class="card-title">GIGADEV 基差 <span class="tag">HL × A股</span></div>
           <div class="pair">xyz:GIGADEV vs 兆易创新 603986.SH</div>
         </div>
+        <a class="card-link" href="https://gigadev-basis-monitor.surface-buaa139523.chatgpt.site" target="_blank" rel="noopener">详情 →</a>
       </div>
       <div class="spread-main">
         <span class="val" id="giga-val">--</span>
@@ -238,6 +245,7 @@
           <div class="card-title">KSTR × 科创50 <span class="tag">Binance × 588000</span></div>
           <div class="pair">KSTRUSDT vs 科创50ETF · 20日滚动中位数基线</div>
         </div>
+        <a class="card-link" href="https://star50-kstr-spread.surface-buaa139523.chatgpt.site" target="_blank" rel="noopener">详情 →</a>
       </div>
       <div class="spread-main">
         <span class="val" id="kstr-val">--</span>
@@ -270,6 +278,7 @@
           <div class="card-title">CXMT 跨市场 <span class="tag">3平台 × A股</span></div>
           <div class="pair">xyz:CXMT · Gate · Aster vs 长鑫科技 688825.SH</div>
         </div>
+        <a class="card-link" href="https://cxmt-spread-watch.surface-buaa139523.chatgpt.site" target="_blank" rel="noopener">详情 →</a>
       </div>
       <div class="spread-main">
         <span class="val" id="cxmt-val">--</span>
