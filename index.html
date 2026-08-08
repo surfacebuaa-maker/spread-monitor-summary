@@ -362,7 +362,7 @@ const state = {
   gigadev: { spread: null, hl: null, fair: null, stock: null, fx: null },
   kstr:    { spread: null, bid: null, ask: null, median: null, fx: null, rToday: null },
   cxmt:    { spreads: { hl: null, gate: null, aster: null }, asterBid: null, fair: null, stock: null, fx: null },
-  fired:   { gigadev: false, kstr: false, cxmt: false, hl: false, gate: false, aster: false },
+  lastReminded: { gigadev: 0, kstr: 0, hl: 0, gate: 0, aster: 0 },
 };
 
 /* ================= 声音 ================= */
@@ -391,14 +391,34 @@ function toast(msg) {
   requestAnimationFrame(() => t.classList.add("show"));
   setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 350); }, 4200);
 }
-let notifOk = false;
+let notifOk = "Notification" in window && Notification.permission === "granted";
 function requestNotif() {
-  if ("Notification" in window && Notification.permission === "default") {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "granted") {
+    notifOk = true;
+  } else if (Notification.permission === "default") {
     Notification.requestPermission().then(p => notifOk = p === "granted");
   }
 }
 function notif(title, body) {
   if (notifOk) { try { new Notification(title, { body }); } catch (e) {} }
+}
+function reminderIntervalMs() {
+  const sec = parseInt($("refreshRate").value, 10) || 5;
+  return sec * 1000;
+}
+function remind(key, triggered, title, body, toastText) {
+  if (!triggered) {
+    state.lastReminded[key] = 0;
+    return;
+  }
+  const now = Date.now();
+  const last = state.lastReminded[key] || 0;
+  if (last && now - last < reminderIntervalMs()) return;
+  state.lastReminded[key] = now;
+  toast(toastText);
+  notif(title, body);
+  alarm();
 }
 
 /* ================= 数据源 ================= */
@@ -575,7 +595,10 @@ function renderGigadev() {
   $("giga-fair").textContent = s.fair !== null ? "$" + fmt(s.fair, 4) : "--";
   $("giga-stock").textContent = s.stock !== null ? "¥" + fmt(s.stock, 2) : "--";
   $("giga-fx").textContent = s.fx !== null ? fmt(s.fx, 4) : "--";
-  if (s.spread === null) { el.textContent = "--"; flag.textContent = "加载中"; flag.className = "flag"; return; }
+  if (s.spread === null) {
+    state.lastReminded.gigadev = 0;
+    el.textContent = "--"; flag.textContent = "加载中"; flag.className = "flag"; return;
+  }
   const p = s.spread * 100;
   el.textContent = (p >= 0 ? "+" : "") + p.toFixed(2);
   el.style.color = colorOf(p);
@@ -593,12 +616,10 @@ function renderGigadev() {
     flag.textContent = "正常";
     flag.className = "flag ok";
   }
-  if (triggered && !state.fired.gigadev) {
-    state.fired.gigadev = true;
-    toast(`GIGADEV 价差 ${(p >= 0 ? "+" : "") + p.toFixed(2)}% 超过阈值 ±${th}%`);
-    notif("GIGADEV 价差提醒", `当前 ${(p >= 0 ? "+" : "") + p.toFixed(2)}% (阈值 ±${th}%)`);
-    alarm();
-  } else if (!triggered) state.fired.gigadev = false;
+  const gigaText = (p >= 0 ? "+" : "") + p.toFixed(2);
+  remind("gigadev", triggered, "GIGADEV 价差提醒",
+    `当前 ${gigaText}% (阈值 ±${th}%)`,
+    `GIGADEV 价差 ${gigaText}% 超过阈值 ±${th}%`);
 }
 
 function renderKstr() {
@@ -608,7 +629,10 @@ function renderKstr() {
   $("kstr-ask").textContent = s.ask !== null ? fmt(s.ask, 3) : "--";
   $("kstr-med").textContent = s.median !== null ? fmt(s.median, 3) : "--";
   $("kstr-fx").textContent = s.fx !== null ? fmt(s.fx, 4) : "--";
-  if (s.spread === null) { el.textContent = "--"; flag.textContent = "加载中"; flag.className = "flag"; return; }
+  if (s.spread === null) {
+    state.lastReminded.kstr = 0;
+    el.textContent = "--"; flag.textContent = "加载中"; flag.className = "flag"; return;
+  }
   const p = s.spread * 100;
   el.textContent = (p >= 0 ? "+" : "") + p.toFixed(2);
   el.style.color = colorOf(p);
@@ -621,12 +645,10 @@ function renderKstr() {
   tag.textContent = triggered ? "超阈值" : "Binance × 588000";
   if (triggered) { flag.textContent = "⚠ 超阈值"; flag.className = "flag warn-flag"; }
   else { flag.textContent = "正常"; flag.className = "flag ok"; }
-  if (triggered && !state.fired.kstr) {
-    state.fired.kstr = true;
-    toast(`KSTR 价差 ${(p >= 0 ? "+" : "") + p.toFixed(2)}% 超过阈值 ±${th}%`);
-    notif("KSTR 价差提醒", `当前 ${(p >= 0 ? "+" : "") + p.toFixed(2)}% (阈值 ±${th}%)`);
-    alarm();
-  } else if (!triggered) state.fired.kstr = false;
+  const kstrText = (p >= 0 ? "+" : "") + p.toFixed(2);
+  remind("kstr", triggered, "KSTR 价差提醒",
+    `当前 ${kstrText}% (阈值 ±${th}%)`,
+    `KSTR 价差 ${kstrText}% 超过阈值 ±${th}%`);
 }
 
 function renderCxmt() {
@@ -650,7 +672,10 @@ function renderCxmt() {
   const th = parseFloat($("cxmt-th").value) || 2.0;
   const on = $("cxmt-on").checked;
   // 主显示取三平台中最接近公允价的(绝对值最小)
-  if (vals.length === 0) { el.textContent = "--"; flag.textContent = "加载中"; flag.className = "flag"; }
+  if (vals.length === 0) {
+    ["hl", "gate", "aster"].forEach(k => state.lastReminded[k] = 0);
+    el.textContent = "--"; flag.textContent = "加载中"; flag.className = "flag";
+  }
   else {
     const minAbs = vals.reduce((a, b) => Math.abs(a) <= Math.abs(b) ? a : b);
     const p = minAbs * 100;
@@ -661,13 +686,11 @@ function renderCxmt() {
       const vv = v[k];
       const tr = on && vv !== null && absPct(vv) >= th;
       $("venue-" + k).classList.toggle("warn", tr);
-      if (tr && !state.fired[k]) {
-        state.fired[k] = true;
-        const label = { hl: "Hyperliquid", gate: "Gate", aster: "Aster" }[k];
-        toast(`CXMT ${label} 价差 ${(vv * 100 >= 0 ? "+" : "") + (vv * 100).toFixed(2)}% 超过阈值 ±${th}%`);
-        notif("CXMT 价差提醒", `${label}: ${(vv * 100 >= 0 ? "+" : "") + (vv * 100).toFixed(2)}% (阈值 ±${th}%)`);
-        alarm();
-      } else if (!tr) state.fired[k] = false;
+      const label = { hl: "Hyperliquid", gate: "Gate", aster: "Aster" }[k];
+      const venueText = (vv * 100 >= 0 ? "+" : "") + (vv * 100).toFixed(2);
+      remind(k, tr, "CXMT 价差提醒",
+        `${label}: ${venueText}% (阈值 ±${th}%)`,
+        `CXMT ${label} 价差 ${venueText}% 超过阈值 ±${th}%`);
     });
     const anyTr = on && vals.some(x => absPct(x) >= th);
     $("card-cxmt").classList.toggle("warn", anyTr);
