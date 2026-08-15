@@ -10,6 +10,7 @@
 - **GIGADEV 基差**：Hyperliquid（xyz:GIGADEV）买一 vs 兆易创新（603986.SH）A股卖一，USD/CNY 换算
 - **KSTR × 科创50**：Binance KSTRUSDT 买一 vs 588000 ETF 卖一，按 20 日滚动中位数基线归一化
 - **CXMT 跨市场**：Hyperliquid / Gate / Aster 三平台买一 vs 长鑫科技（688825.SH）A股卖一
+- **UNITREE 跨平台**：Bybit / Gate / Aster / Hyperliquid 四平台实时价差；上市前以跨平台中位价为参考，上市后配置 A 股代码即可切换为股票公允价口径
 
 ## 工作原理
 
@@ -17,8 +18,9 @@
 
 - Hyperliquid：`https://api.hyperliquid.xyz/info`（POST l2Book）
 - Binance：`https://fapi.binance.com/fapi/v1/...`（bookTicker / 日线）
-- Gate：`wss://fx-ws.gateio.ws/v4/ws/usdt`（CXMT_USDT bookTicker）
-- Aster：`wss://fstream.asterdex.com/ws/cxmtusdt@bookTicker` 与 `@markPrice`
+- Bybit：`https://api.bybit.com/v5/market/tickers`（UNITREEUSDT ticker）
+- Gate：`wss://fx-ws.gateio.ws/v4/ws/usdt`（CXMT_USDT / UNITREE_USDT bookTicker）
+- Aster：CXMT 使用 `wss://fstream.asterdex.com/ws/cxmtusdt@bookTicker` / `@markPrice`；UNITREE 使用 `https://fapi.asterdex.com/fapi/v3/ticker/bookTicker`
 - 腾讯行情：`qt.gtimg.cn`（实时盘口）与 `web.ifzq.gtimg.cn`（K线）
 
 ## 本地编辑与预览

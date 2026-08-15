@@ -205,7 +205,7 @@
 
   <div class="status-bar">
     <span><i class="dot" id="liveDot"></i> <b id="liveText">连接中…</b></span>
-    <span>数据源：Hyperliquid · Binance · Gate · Aster · 腾讯行情</span>
+    <span>数据源：Hyperliquid · Binance · Bybit · Gate · Aster · 腾讯行情</span>
     <span class="spacer"></span>
     <span class="last">更新于 <b id="lastUpdate">--:--:--</b></span>
   </div>
@@ -327,12 +327,65 @@
       <a class="card-detail" href="https://cxmt-spread-watch.surface-buaa139523.chatgpt.site" target="_blank" rel="noopener">查看详情 →</a>
     </div>
 
+    <!-- UNITREE -->
+    <div class="card" id="card-unitree">
+      <div class="card-head">
+        <div>
+          <div class="card-title">UNITREE 跨平台 <span class="tag">4平台 · PRE-IPO</span></div>
+          <div class="pair">Bybit · Gate · Aster · xyz:UNITREE · 上市后接入A股</div>
+        </div>
+        <a class="card-link" href="https://unitree-basis-monitor.surface-buaa139523.chatgpt.site/" target="_blank" rel="noopener">详情 →</a>
+      </div>
+      <div class="spread-main">
+        <span class="val" id="unitree-val">--</span>
+        <span class="unit">%</span>
+        <span class="flag" id="unitree-flag">加载中</span>
+      </div>
+      <div class="venues">
+        <div class="venue" id="venue-unitree-bybit">
+          <div class="v-name">Bybit</div>
+          <div class="v-val" id="unitree-bybit">--</div>
+        </div>
+        <div class="venue" id="venue-unitree-gate">
+          <div class="v-name">Gate</div>
+          <div class="v-val" id="unitree-gate">--</div>
+        </div>
+        <div class="venue" id="venue-unitree-aster">
+          <div class="v-name">Aster</div>
+          <div class="v-val" id="unitree-aster">--</div>
+        </div>
+        <div class="venue" id="venue-unitree-hl">
+          <div class="v-name">Hyperliquid</div>
+          <div class="v-val" id="unitree-hl">--</div>
+        </div>
+      </div>
+      <div class="sub-data">
+        <span>参考价 <b id="unitree-ref">--</b></span>
+        <span>最高买一 <b id="unitree-best-bid">--</b></span>
+        <span>最低卖一 <b id="unitree-best-ask">--</b></span>
+        <span>口径 <b id="unitree-mode">上市前跨所</b></span>
+      </div>
+      <div class="alert-set">
+        <label>提醒阈值</label>
+        <div class="threshold">
+          <input type="number" id="unitree-th" step="0.1" min="0.1" max="20" value="1.0">
+          <span>%</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="unitree-on" checked>
+          <span class="switch"></span> 开启
+        </label>
+      </div>
+      <a class="card-detail" href="https://unitree-basis-monitor.surface-buaa139523.chatgpt.site/" target="_blank" rel="noopener">查看详情与上市代码设置 →</a>
+    </div>
+
   </div>
 
   <footer>
-    价差口径：<b>A股公允价 = A股卖一价 ÷ USD/CNY；价差 = 合约买一价 ÷ 公允价 − 1</b>（KSTR 另按最近20个交易日滚动中位数归一化；合约买一 = 盘口可卖出的最高报价，A股卖一 = 买入需支付的价格）。<br>
+    价差口径：<b>A股公允价 = A股卖一价 ÷ USD/CNY；价差 = 合约买一价 ÷ 公允价 − 1</b>（UNITREE 上市前以四平台中位价为参考，并显示最高买一 ÷ 最低卖一 − 1 的可执行跨所价差；KSTR 另按最近20个交易日滚动中位数归一化）。<br>
     数据来源：<a href="https://api.hyperliquid.xyz/info" target="_blank">Hyperliquid API</a> ·
     <a href="https://fapi.binance.com" target="_blank">Binance Futures</a> ·
+    <a href="https://api.bybit.com" target="_blank">Bybit</a> ·
     <a href="https://api.gateio.ws" target="_blank">Gate.io</a> ·
     <a href="https://asterdex.github.io/aster-api-website/zh/futures-v3/market-data" target="_blank">Aster</a> ·
     腾讯行情 · 仅供监控参考，不构成交易建议
@@ -348,6 +401,14 @@ const CFG = {
   gigadev: { hlCoin: "xyz:GIGADEV", stockCode: "sh603986", name: "兆易创新" },
   cxmt:    { hlCoin: "xyz:CXMT",    stockCode: "sh688825", name: "长鑫科技" },
   kstr:    { symbol: "KSTRUSDT",    etfCode: "sh588000" },
+  unitree: {
+    hlCoin: "xyz:UNITREE",
+    bybitSymbol: "UNITREEUSDT",
+    gateSymbol: "UNITREE_USDT",
+    asterSymbol: "UNITREEUSDT",
+    stockCode: "", // 上市后填入 sh/sz/bj + 6位代码，即自动切换为 A 股公允价口径
+    name: "宇树科技"
+  },
 };
 
 /* ================= 工具 ================= */
@@ -355,6 +416,12 @@ const $ = id => document.getElementById(id);
 const fmt = (v, d = 2) => (v === null || v === undefined || isNaN(v)) ? "--" : Number(v).toFixed(d);
 const fmtPct = v => (v === null || v === undefined || isNaN(v)) ? "--" : (v >= 0 ? "+" : "") + (v * 100).toFixed(2) + "%";
 const absPct = v => Math.abs(v * 100);
+const medianOf = values => {
+  const sorted = values.filter(Number.isFinite).slice().sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const i = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[i] : (sorted[i - 1] + sorted[i]) / 2;
+};
 
 const state = {
   live: false,
@@ -362,6 +429,12 @@ const state = {
   gigadev: { spread: null, hl: null, fair: null, stock: null, fx: null },
   kstr:    { spread: null, bid: null, ask: null, median: null, fx: null, rToday: null },
   cxmt:    { spreads: { hl: null, gate: null, aster: null }, asterBid: null, fair: null, stock: null, fx: null },
+  unitree: {
+    books: { bybit: null, gate: null, aster: null, hl: null },
+    spreads: { bybit: null, gate: null, aster: null, hl: null },
+    reference: null, bestBid: null, bestAsk: null, crossSpread: null,
+    fair: null, stock: null, fx: null, mode: "preipo"
+  },
   lastReminded: { gigadev: 0, kstr: 0, hl: 0, gate: 0, aster: 0 },
 };
 
@@ -491,6 +564,24 @@ async function binanceBook(symbol) {
   return { bid: parseFloat(d.bidPrice), ask: parseFloat(d.askPrice) };
 }
 
+/* Bybit / Aster REST bookTicker（UNITREE 定时刷新） */
+async function bybitBook(symbol) {
+  const r = await fetch(`https://api.bybit.com/v5/market/tickers?category=linear&symbol=${symbol}`, { cache: "no-store" });
+  if (!r.ok) throw new Error("Bybit " + r.status);
+  const d = await r.json();
+  const t = d.result && d.result.list && d.result.list[0];
+  if (!t) throw new Error("Bybit no book");
+  return { bid: parseFloat(t.bid1Price), ask: parseFloat(t.ask1Price) };
+}
+async function asterBook(symbol) {
+  const r = await fetch(`https://fapi.asterdex.com/fapi/v3/ticker/bookTicker?symbol=${symbol}`, { cache: "no-store" });
+  if (!r.ok) throw new Error("Aster " + r.status);
+  const d = await r.json();
+  const bid = parseFloat(d.bidPrice), ask = parseFloat(d.askPrice);
+  if (!bid || !ask) throw new Error("Aster no book");
+  return { bid, ask };
+}
+
 /* KSTR 20日基线: 最近20个已收盘交易日的移动窗口中位数 (rolling window) */
 let kstrMedianCache = null, kstrMedianAt = 0;
 const fmtDate = ts => {
@@ -532,14 +623,14 @@ async function kstrMedian() {
 }
 
 /* Gate WebSocket bookTicker */
-function gateWS(onData) {
+function gateWS(symbol, onData) {
   const ws = new WebSocket("wss://fx-ws.gateio.ws/v4/ws/usdt");
   ws.onopen = () => {
     ws.send(JSON.stringify({
       time: Math.floor(Date.now() / 1000),
       channel: "futures.book_ticker",
       event: "subscribe",
-      payload: ["CXMT_USDT"]
+      payload: [symbol]
     }));
   };
   ws.onmessage = e => {
@@ -547,13 +638,13 @@ function gateWS(onData) {
       const d = JSON.parse(e.data);
       if (d.channel === "futures.book_ticker" && d.result) {
         const t = Array.isArray(d.result) ? d.result[0] : d.result;
-        if (t && (t.s === "CXMT_USDT" || t.contract === "CXMT_USDT")) {
+        if (t && (t.s === symbol || t.contract === symbol)) {
           onData({ bid: parseFloat(t.b), ask: parseFloat(t.a) });
         }
       }
     } catch (err) {}
   };
-  ws.onclose = () => setTimeout(() => gateWS(onData), 5000);
+  ws.onclose = () => setTimeout(() => gateWS(symbol, onData), 5000);
   ws.onerror = () => { try { ws.close(); } catch (e) {} };
   return ws;
 }
@@ -583,6 +674,26 @@ function asterWS(onData) {
   ws.onclose = reopen; ws.onerror = () => { try { ws.close(); } catch (e) {} };
   ws2.onclose = reopen; ws2.onerror = () => { try { ws2.close(); } catch (e) {} };
   return { ws, ws2 };
+}
+
+function recalcUnitree() {
+  const s = state.unitree;
+  const keys = ["bybit", "gate", "aster", "hl"];
+  const mids = keys.map(k => {
+    const book = s.books[k];
+    return book && Number.isFinite(book.bid) && Number.isFinite(book.ask) ? (book.bid + book.ask) / 2 : null;
+  }).filter(Number.isFinite);
+  s.mode = s.fair ? "listed" : "preipo";
+  s.reference = s.fair || medianOf(mids);
+  keys.forEach(k => {
+    const book = s.books[k];
+    s.spreads[k] = book && Number.isFinite(book.bid) && s.reference ? book.bid / s.reference - 1 : null;
+  });
+  const bids = keys.map(k => s.books[k] && s.books[k].bid).filter(Number.isFinite);
+  const asks = keys.map(k => s.books[k] && s.books[k].ask).filter(Number.isFinite);
+  s.bestBid = bids.length ? Math.max(...bids) : null;
+  s.bestAsk = asks.length ? Math.min(...asks) : null;
+  s.crossSpread = s.bestBid && s.bestAsk ? s.bestBid / s.bestAsk - 1 : null;
 }
 
 /* ================= 渲染 ================= */
@@ -702,12 +813,72 @@ function renderCxmt() {
   }
 }
 
+function renderUnitree() {
+  const s = state.unitree;
+  const el = $("unitree-val"), flag = $("unitree-flag");
+  const keys = ["bybit", "gate", "aster", "hl"];
+  const labels = { bybit: "Bybit", gate: "Gate", aster: "Aster", hl: "Hyperliquid" };
+  const vals = keys.map(k => s.spreads[k]).filter(Number.isFinite);
+  const th = parseFloat($("unitree-th").value) || 1.0;
+  const on = $("unitree-on").checked;
+
+  $("unitree-ref").textContent = s.reference !== null ? "$" + fmt(s.reference, 3) : "--";
+  $("unitree-best-bid").textContent = s.bestBid !== null ? "$" + fmt(s.bestBid, 3) : "--";
+  $("unitree-best-ask").textContent = s.bestAsk !== null ? "$" + fmt(s.bestAsk, 3) : "--";
+  $("unitree-mode").textContent = s.mode === "listed" ? "A股公允价" : "上市前跨所";
+
+  keys.forEach(k => {
+    const vv = s.spreads[k];
+    const venueEl = $("unitree-" + k);
+    if (vv === null || !Number.isFinite(vv)) {
+      venueEl.textContent = "--";
+      venueEl.style.color = "";
+      $("venue-unitree-" + k).classList.remove("warn");
+      state.lastReminded["unitree-" + k] = 0;
+      return;
+    }
+    const p = vv * 100;
+    venueEl.textContent = (p >= 0 ? "+" : "") + p.toFixed(2) + "%";
+    venueEl.style.color = colorOf(p);
+    const triggered = on && Math.abs(p) >= th;
+    $("venue-unitree-" + k).classList.toggle("warn", triggered);
+    const venueText = (p >= 0 ? "+" : "") + p.toFixed(2);
+    remind("unitree-" + k, triggered, "UNITREE 价差提醒",
+      `${labels[k]}: ${venueText}% (阈值 ±${th}%)`,
+      `UNITREE ${labels[k]} 价差 ${venueText}% 超过阈值 ±${th}%`);
+  });
+
+  if (s.crossSpread === null || vals.length === 0) {
+    el.textContent = "--";
+    flag.textContent = "加载中";
+    flag.className = "flag";
+    $("card-unitree").classList.remove("warn");
+    return;
+  }
+
+  const crossPct = s.crossSpread * 100;
+  el.textContent = (crossPct >= 0 ? "+" : "") + crossPct.toFixed(2);
+  el.style.color = colorOf(crossPct);
+  const anyTr = on && (Math.abs(crossPct) >= th || vals.some(v => absPct(v) >= th));
+  $("card-unitree").classList.toggle("warn", anyTr);
+  const tag = $("card-unitree").querySelector(".tag");
+  tag.classList.toggle("warn-tag", anyTr);
+  tag.textContent = anyTr ? "超阈值" : (s.mode === "listed" ? "4平台 × A股" : "4平台 · PRE-IPO");
+  if (anyTr) {
+    flag.textContent = "⚠ 超阈值";
+    flag.className = "flag warn-flag";
+  } else {
+    flag.textContent = "跨所价差";
+    flag.className = "flag ok";
+  }
+}
+
 /* ================= 主刷新 ================= */
 async function refreshAll() {
   try {
-    const [tx] = await Promise.all([
-      tencentQuotes([CFG.gigadev.stockCode, CFG.kstr.etfCode, CFG.cxmt.stockCode, "whUSDCNY"]),
-    ]);
+    const quoteCodes = [CFG.gigadev.stockCode, CFG.kstr.etfCode, CFG.cxmt.stockCode, "whUSDCNY"];
+    if (CFG.unitree.stockCode) quoteCodes.push(CFG.unitree.stockCode);
+    const tx = await tencentQuotes(quoteCodes);
     const fx = tx.whUSDCNY ? tx.whUSDCNY.price : null;
 
     // ---- GIGADEV ----
@@ -753,6 +924,24 @@ async function refreshAll() {
       if (stock && fx) { state.cxmt.fair = stock / fx; state.cxmt.stock = stock; }
     }
 
+    // ---- UNITREE（Bybit / Aster / HL 定时刷新；Gate 由 WebSocket 推送） ----
+    const unitreeResults = await Promise.allSettled([
+      bybitBook(CFG.unitree.bybitSymbol),
+      asterBook(CFG.unitree.asterSymbol),
+      hlL2Book(CFG.unitree.hlCoin),
+    ]);
+    const unitreeKeys = ["bybit", "aster", "hl"];
+    unitreeResults.forEach((result, i) => {
+      state.unitree.books[unitreeKeys[i]] = result.status === "fulfilled" ? result.value : null;
+    });
+    const unitreeStock = CFG.unitree.stockCode && tx[CFG.unitree.stockCode]
+      ? (tx[CFG.unitree.stockCode].ask1 || tx[CFG.unitree.stockCode].price)
+      : null;
+    state.unitree.stock = unitreeStock;
+    state.unitree.fx = fx;
+    state.unitree.fair = unitreeStock && fx ? unitreeStock / fx : null;
+    recalcUnitree();
+
     state.live = true;
     state.lastUpdate = new Date();
     $("liveDot").className = "dot on";
@@ -764,11 +953,11 @@ async function refreshAll() {
     $("liveText").textContent = "连接异常";
     toast("行情获取失败：" + e.message);
   }
-  renderGigadev(); renderKstr(); renderCxmt();
+  renderGigadev(); renderKstr(); renderCxmt(); renderUnitree();
 }
 
 /* Gate/Aster 推送更新 CXMT */
-gateWS(d => {
+gateWS("CXMT_USDT", d => {
   if (state.cxmt.fair) {
     state.cxmt.spreads.gate = d.bid / state.cxmt.fair - 1;
     renderCxmt();
@@ -788,6 +977,13 @@ asterWS(d => {
   }
 });
 
+/* Gate 推送更新 UNITREE；其余三平台随 refreshAll 定时刷新 */
+gateWS(CFG.unitree.gateSymbol, d => {
+  state.unitree.books.gate = d;
+  recalcUnitree();
+  renderUnitree();
+});
+
 /* ================= 启动 ================= */
 let timer = null;
 function schedule() {
@@ -799,9 +995,9 @@ $("refreshRate").addEventListener("change", schedule);
 $("btnRefresh").addEventListener("click", refreshAll);
 $("btnSound").addEventListener("click", () => { audioCtx && audioCtx.resume && audioCtx.resume(); alarm(); toast("🔔 提醒声音测试"); });
 
-["giga", "kstr", "cxmt"].forEach(k => {
-  $(k + "-th").addEventListener("change", () => { renderGigadev(); renderKstr(); renderCxmt(); });
-  $(k + "-on").addEventListener("change", () => { renderGigadev(); renderKstr(); renderCxmt(); });
+["giga", "kstr", "cxmt", "unitree"].forEach(k => {
+  $(k + "-th").addEventListener("change", () => { renderGigadev(); renderKstr(); renderCxmt(); renderUnitree(); });
+  $(k + "-on").addEventListener("change", () => { renderGigadev(); renderKstr(); renderCxmt(); renderUnitree(); });
 });
 
 requestNotif();
